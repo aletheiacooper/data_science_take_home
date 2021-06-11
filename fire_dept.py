@@ -1,6 +1,7 @@
 import requests
 import json
 import csv
+from datetime import datetime, timedelta
 
 response = requests.get("https://data.sfgov.org/resource/RowID.json")
 # In production environment, would do error checking in case the data doesn't load properly
@@ -49,3 +50,41 @@ with open(csv_file, 'w') as csvfile:
     for data in fire_dept_data_first_60000:
         writer.writerow(data)
 
+"""Ok, looking at the data and the first task, I see there's a
+dispatch time that might be when the run is created, and a received
+time that might also be that.  A quick spotcheck shows that the
+received time seems to be before the dispatch time, so I'll use
+received time as the creation time; in a production setting I'd want
+to check this assumption.
+
+It's not clear what the "on route" field should be: I'm going to use
+the "response" time as that, since it seems to be usually after the dispatch time."""
+
+for row in fire_dept_data_first_60000:
+    row["creation_datetime"] = datetime.strptime(row["dispatch_dttm"], "%Y-%m-%dT%H:%M:%S.000")
+    if "response_dttm" in list(row.keys()):
+        row["response_datetime"] = datetime.strptime(row["response_dttm"], "%Y-%m-%dT%H:%M:%S.000")
+
+# mark evening data
+
+for row in fire_dept_data_first_60000:
+    creation_time = row["creation_datetime"].hour
+    row["is_evening"] = creation_time >= 22 or creation_time < 6 #creation time 10pm or greater, or before 6am
+
+
+for row in fire_dept_data_first_60000:
+    if "response_datetime" in row.keys():
+        turnout_time = row["response_datetime"] - row["creation_datetime"]
+        if turnout_time > timedelta(seconds=0):
+            #Assume a zero turnout time is inaccurate
+            row["turnout_time"] = turnout_time
+
+
+task1_data = []
+
+for row in fire_dept_data_first_60000:
+    if "turnout_time" in list(row.keys()):
+        current_dict = {}
+        current_dict["is_evening"] = row["is_evening"]
+        current_dict["turnout_time"] = row["turnout_time"]
+        task1_data.append(current_dict)
