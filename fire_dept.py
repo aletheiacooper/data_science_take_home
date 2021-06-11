@@ -83,6 +83,9 @@ for row in fire_dept_data_first_60000:
             #Assume a zero turnout time is inaccurate
             row["turnout_time"] = turnout_time
 
+for row in fire_dept_data_first_60000:
+    dispatch_time = row["creation_datetime"].hour
+    row["is_evening"] = creation_time >= 22 or creation_time < 6 #creation time 10pm or greater, or before 6am
 
 task1_data = []
 
@@ -108,8 +111,33 @@ not_evening_average = sum(not_evening_turnouts)/len(not_evening)
 
 """This suggests that in fact the evening turnouts ARE slower.  Let's get more precise.
 
-First of all, we need to decide what p-value we should use.  I plan on running fewer than 100 tests on this data, so a p-value of .01 makes sense.  I will come back and change this if I end up running more/fewer tests."""
+First of all, we need to decide what p-value we should use.  I plan on running fewer than 100 tests on this data, so a p-value of .01 makes sense.  I will come back and change this if I end up running close to 100 tests or more."""
 
 u_value, p_value = scipy.stats.mannwhitneyu(evening_turnouts, not_evening_turnouts, alternative="two-sided")
 
 """The p-value is ~1.4e-174, so it passes our pre-determined significance test, and I'm willing to say that evening turnouts are slower than non-evening turnouts."""
+
+"""Now for task1, part b.  We need to access the previous call for a given unit, which may very well not be in our subsample. So we need to pull them from the API if possible.  I'm going to just pull the other calls in a given day for that unit, which introduces a small amount of error because of not including consecutive calls that fall on opposite sides of midnight.
+
+I'm ending up needing, for performance reasons, to use a subset of the 60k rows."""
+
+include_previous_incidents = []
+
+for row in fire_dept_data_first_60000[:2]:
+    begin_day_of_call = datetime.strftime(row["creation_datetime"], "%Y-%m-%dT00:00:00.000")
+    begin_day_of_call
+    end_day_datetime = row["creation_datetime"] + timedelta(days=1)
+    end_day_of_call = datetime.strftime(end_day_datetime, "%Y-%m-%dT00:00:00.000")
+    end_day_of_call
+    unit = row["battalion"]
+    params = {}
+    params["battalion"] = "battalion=" + unit
+    q = "dispatch_dttm between '" + begin_day_of_call + "' and '" + end_day_of_call + "'"
+    q
+    params["$where"] = q
+    response = requests.get(url, headers=header, params=params)
+    new_rows = load_from_response_to_dict(response)
+    new_rows
+    type(new_rows)
+    for new_row in new_rows:
+        include_previous_incidents.append(new_row)
