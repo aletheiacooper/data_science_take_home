@@ -2,6 +2,7 @@ import requests
 import json
 import csv
 from datetime import datetime, timedelta
+import scipy.stats
 
 response = requests.get("https://data.sfgov.org/resource/RowID.json")
 # In production environment, would do error checking in case the data doesn't load properly
@@ -37,7 +38,10 @@ before_2010_in_first_60k = len([thing for thing in fire_dept_data_first_60000 if
 
 """This shows me that there are 4504 rows for which the call date is before 2010 in the first 60k records. I think I'm going to move forward with this sample, although I would want to do some more checking that the sample is representative before using it in a production setting."""
 
-""" TIme to look at the data!  There's no substitute for actually seeing the data before starting to deal with it!"""
+""" TIme to look at the data!  There's no substitute for actually seeing the data before sta
+rting to deal with it!"""
+
+"""all_columns = []
 
 for row in fire_dept_data_first_60000:
     for column_name in list(row.keys()):
@@ -49,7 +53,7 @@ with open(csv_file, 'w') as csvfile:
     writer.writeheader()
     for data in fire_dept_data_first_60000:
         writer.writerow(data)
-
+"""
 """Ok, looking at the data and the first task, I see there's a
 dispatch time that might be when the run is created, and a received
 time that might also be that.  A quick spotcheck shows that the
@@ -88,3 +92,24 @@ for row in fire_dept_data_first_60000:
         current_dict["is_evening"] = row["is_evening"]
         current_dict["turnout_time"] = row["turnout_time"]
         task1_data.append(current_dict)
+
+evening = [row for row in task1_data if row["is_evening"]]
+not_evening = [row for row in task1_data if not row["is_evening"]]
+
+# quick spot check that the turnout times seem different at all
+
+evening_turnouts = [row["turnout_time"].seconds for row in evening]
+not_evening_turnouts = [row["turnout_time"].seconds for row in not_evening]
+                        
+evening_average = sum(evening_turnouts)/len(evening)
+# Rounds to 82
+not_evening_average = sum(not_evening_turnouts)/len(not_evening)
+# Rounds to 62
+
+"""This suggests that in fact the evening turnouts ARE slower.  Let's get more precise.
+
+First of all, we need to decide what p-value we should use.  I plan on running fewer than 100 tests on this data, so a p-value of .01 makes sense.  I will come back and change this if I end up running more/fewer tests."""
+
+u_value, p_value = scipy.stats.mannwhitneyu(evening_turnouts, not_evening_turnouts, alternative="two-sided")
+
+"""The p-value is ~1.4e-174, so it passes our pre-determined significance test, and I'm willing to say that evening turnouts are slower than non-evening turnouts."""
