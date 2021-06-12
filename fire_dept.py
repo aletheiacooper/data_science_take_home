@@ -16,7 +16,7 @@ if os.path.exists(file_name):
 else:
 
     # In production environment, would do error checking in case the data doesn't load properly
-    
+    print("Pulling new data, creating new data file")
     params = {"$limit" : 60000}
     response = requests.get(url, headers=header, params=params)
     
@@ -26,7 +26,7 @@ else:
     initial_data = json.loads(json.dumps(response.json()))
 
 
-print("Finished pulling data")
+print("Finished loading data")
 
 """This took about 10 seconds, so getting all 5.58 million would take
 ~1000 seconds assuming I'm not throttled by the website, so at least
@@ -140,24 +140,35 @@ print("Mann Whitney test on evening vs. not-evening turnout times yields a p-val
 
 I'm ending up needing, for performance reasons, to use a subset of the 60k rows."""
 
-include_previous_incidents = []
+same_day_filename = sys.argv[2]
 
-for row in fire_dept_data_first_60000[::600]:
-    begin_day_of_call = datetime.strftime(row["creation_datetime"], "%Y-%m-%dT00:00:00.000")
-    end_day_datetime = row["creation_datetime"] + timedelta(days=1)
-    end_day_of_call = datetime.strftime(end_day_datetime, "%Y-%m-%dT00:00:00.000")
-    unit = row["unit_id"]
-    params = {}
-    params["unit_id"] = unit
-    q = "dispatch_dttm between '" + begin_day_of_call + "' and '" + end_day_of_call + "'"
-    params["$where"] = q
-    response = requests.get(url, headers=header, params=params)
-    new_rows = load_from_response_to_dict(response)
-    for new_row in new_rows:
-        include_previous_incidents.append(new_row)
+if os.path.exists(same_day_filename):
+    with open(same_day_filename, "r") as same_day_file:
+        include_previous_incidents = json.load(same_day_file)
 
-print("Finished pulling rows for same unit, same day from API.")
-print("Total number of rows is: " + str(len(include_previous_incidents)))
+else:
+    include_previous_incidents = []
+
+    for row in fire_dept_data_first_60000[::600]:
+        begin_day_of_call = datetime.strftime(row["creation_datetime"], "%Y-%m-%dT00:00:00.000")
+        end_day_datetime = row["creation_datetime"] + timedelta(days=1)
+        end_day_of_call = datetime.strftime(end_day_datetime, "%Y-%m-%dT00:00:00.000")
+        unit = row["unit_id"]
+        params = {}
+        params["unit_id"] = unit
+        q = "dispatch_dttm between '" + begin_day_of_call + "' and '" + end_day_of_call + "'"
+        params["$where"] = q
+        response = requests.get(url, headers=header, params=params)
+        new_rows = load_from_response_to_dict(response)
+        for new_row in new_rows:
+            include_previous_incidents.append(new_row)
+
+        with open(same_day_filename, "w") as output_file:
+            json.dump(include_previous_incidents, output_file)
+
+    print("Finished pulling rows for same unit, same day from API.")
+
+print("Total number of rows for same unit, same day is: " + str(len(include_previous_incidents)))
 
 for row in include_previous_incidents:
     row["creation_datetime"] = datetime.strptime(row["dispatch_dttm"], "%Y-%m-%dT%H:%M:%S.000")
