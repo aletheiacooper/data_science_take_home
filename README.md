@@ -81,3 +81,7 @@ If one of the files exists and the other doesn't, new data will only be pulled f
 * I have experience with matplotlib which creates mathematical plots in python. I was unable to get it to work in my current development environment. I am aware that the instructions said to create visualizations!
 
 * I understand that my predictive model is very very simple and that a more complex model is needed. I want to demonstrate that I understand the basic workflow of creating a model (training data, test data, etc). And you never know -- sometimes very simple models work after all! I like to start a simple as possible and slowly increase the complexity of the model if the simple models aren't effective enough.
+
+* When I re-pulled the data after being nearly done with my analysis, the first 60,000 rows changed, and in fact became much less representative -- only 8 of them date before 2010. This accounts for the discrepency between the output of the program and the discussion above.
+
+* In production I would absolutely clean up this code. I'd create functions to make the code more readable and eliminate "magic numbers".
