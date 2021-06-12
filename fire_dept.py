@@ -75,6 +75,7 @@ for row in fire_dept_data_first_60000:
     creation_time = row["creation_datetime"].hour
     row["is_evening"] = creation_time >= 22 or creation_time < 6 #creation time 10pm or greater, or before 6am
 
+print([(row["creation_datetime"], row["is_evening"]) for row in fire_dept_data_first_60000[:10]])
 
 for row in fire_dept_data_first_60000:
     if "response_datetime" in row.keys():
@@ -82,10 +83,6 @@ for row in fire_dept_data_first_60000:
         if turnout_time > timedelta(seconds=0):
             #Assume a zero or negative turnout time is inaccurate
             row["turnout_time"] = turnout_time
-
-for row in fire_dept_data_first_60000:
-    dispatch_time = row["creation_datetime"].hour
-    row["is_evening"] = creation_time >= 22 or creation_time < 6 #creation time 10pm or greater, or before 6am
 
 task1_data = []
 
@@ -155,7 +152,8 @@ def previous_incident(incident):
     return previous_incident
                             
 for row in include_previous_incidents:
-    row["available_datetime"] = datetime.strptime(row["available_dttm"], "%Y-%m-%dT%H:%M:%S.000")
+    if "available_dttm" in row.keys():
+        row["available_datetime"] = datetime.strptime(row["available_dttm"], "%Y-%m-%dT%H:%M:%S.000")
 
 count_errors = 0
 for row in include_previous_incidents:
@@ -167,8 +165,7 @@ for row in include_previous_incidents:
         continue
     row["gap"] = row["creation_datetime"] - row["previous_available"]
     row["back_to_back"] = row["gap"] <= timedelta(minutes=10)
-    
-    
+print(count_errors)    
     
 
     
@@ -227,7 +224,8 @@ for row in training_data:
 
 predicted_value = sum(training_total)/len(training_total)
 
-total_squared_percent_error = sum([((predicted_value - row["total_time"].seconds)/predicted_value)**2 for row in test_data])
+has_total_time_test = [row for row in test_data if "total_time" in row.keys()]
+total_squared_percent_error = sum([((predicted_value - row["total_time"].seconds)/predicted_value)**2 for row in has_total_time_test])
 
 average_error = total_squared_percent_error/len(test_data)
 
