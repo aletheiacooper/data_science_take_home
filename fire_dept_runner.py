@@ -38,12 +38,6 @@ but we need something faster as well.
 """Playing around with the filter option on the SFData website, I see
 that the whole data set goes back to the year 2000.  Let's see if the first 60k records seem to span the entire time."""
 
-"""I'm re-using the json loading code above, so time to write a function!"""
-
-def load_from_response_to_dict(response):
-    json_string = json.dumps(response.json())
-    return json.loads(json_string)
-
 fire_dept_data_first_60000 = initial_data
 before_2010_in_first_60k = len([thing for thing in fire_dept_data_first_60000 if thing["call_date"].find("200") != -1])
 
@@ -134,7 +128,7 @@ u_value, p_value = scipy.stats.mannwhitneyu(evening_turnouts, not_evening_turnou
 
 print("Mann Whitney test on evening vs. not-evening turnout times yields a p-value of " + str(p_value))
 
-"""The p-value is ~1.4e-174, so it passes our pre-determined significance test, and I'm willing to say that evening turnouts are slower than non-evening turnouts."""
+"""The p-value is ~1.4e-174, so it passes our pre-determined significance test, and I'm willing to say that evening turnouts are slower than non-evening turnouts.  This p-value seems really low, and it's likely there's an error somewhere, which I would absolutely track down in a production system."""
 
 """Now for task1, part b.  We need to access the previous call for a given unit, which may very well not be in our subsample. So we need to pull them from the API if possible.  I'm going to just pull the other calls in a given day for that unit, which introduces a small amount of error because of not including consecutive calls that fall on opposite sides of midnight.
 
@@ -246,7 +240,7 @@ for row in fire_dept_data_first_60000:
 
 r_value = scipy.stats.pearsonr(all_turnout, all_total)
 print("The Pearson r-value for the possible linear correlation between turnout times and total call times is: " + str(r_value))
-"""(-0.1719694725893584, 0.0)"""
+"""(-0.1719694725893584, 0.0) -- This is not at all significant!  At this initial stage I'd say there isn't a relationship between turnout times and on scene times."""
 
 training_data = fire_dept_data_first_60000[::60]
 test_data = fire_dept_data_first_60000[1::60]
