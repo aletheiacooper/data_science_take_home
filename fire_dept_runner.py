@@ -154,7 +154,7 @@ else:
         q = "dispatch_dttm between '" + begin_day_of_call + "' and '" + end_day_of_call + "'"
         params["$where"] = q
         response = requests.get(URL, headers=HEADER, params=params)
-        new_rows = load_from_response_to_dict(response)
+        new_rows = json.loads(json.dumps(response.json()))
         for new_row in new_rows:
             include_previous_incidents.append(new_row)
 

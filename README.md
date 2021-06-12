@@ -85,3 +85,5 @@ If one of the files exists and the other doesn't, new data will only be pulled f
 * When I re-pulled the data after being nearly done with my analysis, the first 60,000 rows changed, and in fact became much less representative -- only 8 of them date before 2010. This accounts for the discrepency between the output of the program and the discussion above.
 
 * In production I would absolutely clean up this code. I'd create functions to make the code more readable and eliminate "magic numbers".
+
+* I spent about 9 total hours working on this.
