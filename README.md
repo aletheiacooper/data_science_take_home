@@ -6,7 +6,7 @@ This code has been tested with python 3.7 on Linux, specifically Amazon Linux 2.
 
 ### Steps to set up
 
-* Install a version of python 3, using 3.7 or higher for guaranteed compatibility
+* If you don't have already have it, install a version of python 3, using 3.7 or higher for guaranteed compatibility
 
 If you need help with this please feel free to email me, `aletheiacooper@gmail.com`. I have experience doing this with a variety of systems.
 
@@ -18,7 +18,7 @@ If you need help with this, please feel free to email me, `aletheiacooper@gmail.
 
 `pip install pipenv`
 
-* At the top level of this repository, start a virtual environment and install requirements by typing this:
+* At the top level of this repository, start a virtual environment and install the requirements by typing this:
 
 `pipenv install`
 
