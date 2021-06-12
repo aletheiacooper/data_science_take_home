@@ -3,19 +3,32 @@ import json
 import csv
 from datetime import datetime, timedelta
 import scipy.stats
+import sys
+import os
 
-response = requests.get("https://data.sfgov.org/resource/RowID.json")
-# In production environment, would do error checking in case the data doesn't load properly
+file_name = sys.argv[1]
 
-json_string = json.dumps(response.json())
-fire_dept_data = json.loads(json_string)
+if os.path.exists(file_name):
+    with open(file_name, "r") as data_file:
+        response = json.load(data_file)
 
-# Only loads the first 1000 rows.  Let's see if we can do better.
+else:
 
-url = "https://data.sfgov.org/resource/RowID.json"
-header = {"$$app_token" : "I6QzPzDfpk4SrU7Eo0PBYhyiT"}
-params = {"$limit" : 60000}
-response = requests.get(url, headers=header, params=params)
+    response = requests.get("https://data.sfgov.org/resource/RowID.json")
+    # In production environment, would do error checking in case the data doesn't load properly
+    
+    json_string = json.dumps(response.json())
+    fire_dept_data = json.loads(json_string)
+    
+    # Only loads the first 1000 rows.  Let's see if we can do better.
+    
+    url = "https://data.sfgov.org/resource/RowID.json"
+    header = {"$$app_token" : "I6QzPzDfpk4SrU7Eo0PBYhyiT"}
+    params = {"$limit" : 60000}
+    response = requests.get(url, headers=header, params=params)
+
+    with open(file_name, "w") as output_file:
+        json.dump(response.json(), output_file)
 
 """This took about 10 seconds, so getting all 5.58 million would take
 ~1000 seconds assuming I'm not throttled by the website, so at least
