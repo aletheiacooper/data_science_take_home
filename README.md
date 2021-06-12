@@ -30,6 +30,8 @@ If you need help with this, please feel free to email me, `aletheiacooper@gmail.
 
 `pipenv run python fire_dept.py offline_sample_data.json offline_sample_same_day.json`
 
+### General running
+
 * To pull new data, which will take ~20 seconds, you need to give the program the names of the two files where you want the new data to be cached; these files should not already exist. If these are FILENAMEONE.json and FILENAMETWO.json you would type:
 
 `pipenv run python fire_dept.py FILENAMEONE.json FILENAMETWO.json
