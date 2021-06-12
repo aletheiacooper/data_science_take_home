@@ -129,9 +129,9 @@ for row in fire_dept_data_first_60000[:2]:
     end_day_datetime = row["creation_datetime"] + timedelta(days=1)
     end_day_of_call = datetime.strftime(end_day_datetime, "%Y-%m-%dT00:00:00.000")
     end_day_of_call
-    unit = row["battalion"]
+    unit = row["unit_id"]
     params = {}
-    params["battalion"] = "battalion=" + unit
+    params["unit_id"] = unit
     q = "dispatch_dttm between '" + begin_day_of_call + "' and '" + end_day_of_call + "'"
     q
     params["$where"] = q
