@@ -17,6 +17,8 @@ header = {"$$app_token" : "I6QzPzDfpk4SrU7Eo0PBYhyiT"}
 params = {"$limit" : 60000}
 response = requests.get(url, headers=header, params=params)
 
+print("Finished pulling data")
+
 """This took about 10 seconds, so getting all 5.58 million would take
 ~1000 seconds assuming I'm not throttled by the website, so at least
 15 minutes but probably less than 20, which is not bad as an OPTION to
@@ -35,7 +37,10 @@ def load_from_response_to_dict(response):
 
 fire_dept_data_first_60000 = load_from_response_to_dict(response)
 before_2010_in_first_60k = len([thing for thing in fire_dept_data_first_60000 if thing["call_date"].find("200") != -1])
-print(len(fire_dept_data_first_60000))
+
+print("Total number of rows pulled: " + str(len(fire_dept_data_first_60000)))
+print("Rows pulled from before 2010: " + str(before_2010_in_first_60k))
+
 """This shows me that there are 4504 rows for which the call date is before 2010 in the first 60k records. I think I'm going to move forward with this sample, although I would want to do some more checking that the sample is representative before using it in a production setting."""
 
 """ TIme to look at the data!  There's no substitute for actually seeing the data before sta
@@ -75,8 +80,6 @@ for row in fire_dept_data_first_60000:
     creation_time = row["creation_datetime"].hour
     row["is_evening"] = creation_time >= 22 or creation_time < 6 #creation time 10pm or greater, or before 6am
 
-print([(row["creation_datetime"], row["is_evening"]) for row in fire_dept_data_first_60000[:10]])
-
 for row in fire_dept_data_first_60000:
     if "response_datetime" in row.keys():
         turnout_time = row["response_datetime"] - row["creation_datetime"]
@@ -93,13 +96,12 @@ for row in fire_dept_data_first_60000:
         current_dict["turnout_time"] = row["turnout_time"]
         task1_data.append(current_dict)
 
-print(len(task1_data))
+print("Number of rows with turnout time: " + str(len(task1_data)))
 
 evening = [row for row in task1_data if row["is_evening"]]
 not_evening = [row for row in task1_data if not row["is_evening"]]
 
-print(len(evening))
-print(len(not_evening))
+print("Number of evening rows: " + str(len(evening)))
 
 # quick spot check that the turnout times seem different at all
 
@@ -107,15 +109,21 @@ evening_turnouts = [row["turnout_time"].seconds for row in evening]
 not_evening_turnouts = [row["turnout_time"].seconds for row in not_evening]
                         
 evening_average = sum(evening_turnouts)/len(evening)
+print("Average turnout time in seconds for evening data: " + str(evening_average))
 # Rounds to 82
 not_evening_average = sum(not_evening_turnouts)/len(not_evening)
+print("Average turnout time in seconds for not-evening data: " + str(not_evening_average))
 # Rounds to 62
 
 """This suggests that in fact the evening turnouts ARE slower.  Let's get more precise.
 
 First of all, we need to decide what p-value we should use.  I plan on running fewer than 100 tests on this data, so a p-value of .01 makes sense.  I will come back and change this if I end up running close to 100 tests or more."""
 
+print("We will accept significance at the p=.01 level.  Please change this if you run close to 100 tests or more.")
+
 u_value, p_value = scipy.stats.mannwhitneyu(evening_turnouts, not_evening_turnouts, alternative="two-sided")
+
+print("Mann Whitney test on evening vs. not-evening turnout times yields a p-value of " + str(p_value))
 
 """The p-value is ~1.4e-174, so it passes our pre-determined significance test, and I'm willing to say that evening turnouts are slower than non-evening turnouts."""
 
@@ -139,6 +147,8 @@ for row in fire_dept_data_first_60000[::600]:
     for new_row in new_rows:
         include_previous_incidents.append(new_row)
 
+print("Finished pulling rows for same unit, same day from API.")
+print("Total number of rows is: " + str(len(include_previous_incidents)))
 
 for row in include_previous_incidents:
     row["creation_datetime"] = datetime.strptime(row["dispatch_dttm"], "%Y-%m-%dT%H:%M:%S.000")
@@ -146,10 +156,10 @@ for row in include_previous_incidents:
 def previous_incident(incident):
     all_previous = [row for row in include_previous_incidents if row["creation_datetime"] < incident["creation_datetime"]]
     unit_previous = [row for row in all_previous if row["unit_id"] == incident["unit_id"]]
-    just_previous = max([row["creation_datetime"] for row in unit_previous])
     if len(unit_previous) > 0:
-        previous_incident = [row for row in a_i if row["creation_datetime"] == just_previous][0]
-    return previous_incident
+        just_previous = max([row["creation_datetime"] for row in unit_previous])
+        previous_incident = [row for row in unit_previous if row["creation_datetime"] == just_previous][0]
+        return previous_incident
                             
 for row in include_previous_incidents:
     if "available_dttm" in row.keys():
@@ -157,15 +167,14 @@ for row in include_previous_incidents:
 
 count_errors = 0
 for row in include_previous_incidents:
-    try:
+    maybe_previous = previous_incident(row)
+    if maybe_previous and "available_datetime" in maybe_previous.keys():
         row["previous_available"] = previous_incident(row)["available_datetime"]
-    except:
-        print("Errored on previous_incident function")
+    else:
         count_errors += 1
         continue
     row["gap"] = row["creation_datetime"] - row["previous_available"]
     row["back_to_back"] = row["gap"] <= timedelta(minutes=10)
-print(count_errors)    
     
 
     
@@ -182,20 +191,26 @@ for row in include_previous_incidents:
     if "back_to_back" in row.keys() and "turnout_time" in row.keys():
         back_to_backable.append(row)
 
+print("Calculated back-to-back-ness for: " + str(len(back_to_backable)) + " rows.")
+print("Was unable to find previous incident for: " + str(count_errors) + " rows.")
+print("It's perfectly fine for the previous number to be large, but it shouldn't be more than half the rows.")
+
 back_to_back = [row for row in back_to_backable if row["back_to_back"]]
 not_back_to_back = [row for row in back_to_backable if not row["back_to_back"]]
 
 b_to_b_turnouts = [row["turnout_time"].seconds for row in back_to_back]
 not_b_to_b_turnouts = [row["turnout_time"].seconds for row in not_back_to_back]
 
-
-""">>> sum(b_to_b_turnouts)/len(b_to_b_turnouts)
-34.50961538461539
->>> sum(not_b_to_b_turnouts)/len(not_b_to_b_turnouts)
-60.88715953307393"""
+b_to_b_average = sum(b_to_b_turnouts)/len(b_to_b_turnouts)
+print("Average turnout for back to back calls: " + str(b_to_b_average))
+"""34.50961538461539"""
+not_b_to_b_average = sum(not_b_to_b_turnouts)/len(not_b_to_b_turnouts)
+print("Average turnout for calls with longer gaps: " + str(not_b_to_b_average))
+"""60.88715953307393"""
 
 u_value, p_value = scipy.stats.mannwhitneyu(not_b_to_b_turnouts, b_to_b_turnouts, alternative="two-sided")
 
+print("Mann Whitney test on back-to-back vs. not-back-to-back turnout times yields a p-value of " + str(p_value))
 
 for row in fire_dept_data_first_60000:
     if "available_dttm" in row.keys():
@@ -209,12 +224,16 @@ for row in fire_dept_data_first_60000:
         all_total.append(row["total_time"].seconds)
         all_turnout.append(row["turnout_time"].seconds)
 
-
-""">>> scipy.stats.pearsonr(all_turnout, all_total)
-(-0.1719694725893584, 0.0)"""
+r_value = scipy.stats.pearsonr(all_turnout, all_total)
+print("The Pearson r-value for the possible linear correlation between turnout times and total call times is: " + str(r_value))
+"""(-0.1719694725893584, 0.0)"""
 
 training_data = fire_dept_data_first_60000[::60]
 test_data = fire_dept_data_first_60000[1::60]
+
+print("Selected training data and test data for the predictive model.")
+print("Training data has " + str(len(training_data)) + " rows.")
+print("Test data has " + str(len(test_data)) + " rows.")
 
 training_total = []
 
@@ -224,10 +243,13 @@ for row in training_data:
 
 predicted_value = sum(training_total)/len(training_total)
 
+print("Created model using training data only.")
+
 has_total_time_test = [row for row in test_data if "total_time" in row.keys()]
 total_squared_percent_error = sum([((predicted_value - row["total_time"].seconds)/predicted_value)**2 for row in has_total_time_test])
 
 average_error = total_squared_percent_error/len(test_data)
 
+print("Evaluated model on test data. Average percent error was: " + str(average_error)) 
 """>>> average_error
 0.8943626452506162"""
