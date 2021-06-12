@@ -123,21 +123,30 @@ I'm ending up needing, for performance reasons, to use a subset of the 60k rows.
 
 include_previous_incidents = []
 
-for row in fire_dept_data_first_60000[:2]:
+for row in fire_dept_data_first_60000[::600]:
     begin_day_of_call = datetime.strftime(row["creation_datetime"], "%Y-%m-%dT00:00:00.000")
-    begin_day_of_call
     end_day_datetime = row["creation_datetime"] + timedelta(days=1)
     end_day_of_call = datetime.strftime(end_day_datetime, "%Y-%m-%dT00:00:00.000")
-    end_day_of_call
     unit = row["unit_id"]
     params = {}
     params["unit_id"] = unit
     q = "dispatch_dttm between '" + begin_day_of_call + "' and '" + end_day_of_call + "'"
-    q
     params["$where"] = q
     response = requests.get(url, headers=header, params=params)
     new_rows = load_from_response_to_dict(response)
-    new_rows
-    type(new_rows)
     for new_row in new_rows:
         include_previous_incidents.append(new_row)
+
+
+for row in include_previous_incidents:
+    row["creation_datetime"] = datetime.strptime(row["dispatch_dttm"], "%Y-%m-%dT%H:%M:%S.00\
+0")
+        
+def previous_incident(incident):
+    all_previous = [row for row in include_previous_incidents if row["creation_datetime"] < incident["creation_datetime"]]
+    unit_previous = [row for row in all_previous if row["unit_id"] == incident["unit_id"]]
+    just_previous = max([row["creation_datetime"] for row in unit_previous])
+    if len(unit_previous) > 0:
+        previous_incident = [row for row in a_i if row["creation_datetime"] == just_previous][0]
+    return previous_incident
+                            
