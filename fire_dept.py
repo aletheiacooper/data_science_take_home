@@ -35,7 +35,7 @@ def load_from_response_to_dict(response):
 
 fire_dept_data_first_60000 = load_from_response_to_dict(response)
 before_2010_in_first_60k = len([thing for thing in fire_dept_data_first_60000 if thing["call_date"].find("200") != -1])
-
+print(len(fire_dept_data_first_60000))
 """This shows me that there are 4504 rows for which the call date is before 2010 in the first 60k records. I think I'm going to move forward with this sample, although I would want to do some more checking that the sample is representative before using it in a production setting."""
 
 """ TIme to look at the data!  There's no substitute for actually seeing the data before sta
@@ -80,7 +80,7 @@ for row in fire_dept_data_first_60000:
     if "response_datetime" in row.keys():
         turnout_time = row["response_datetime"] - row["creation_datetime"]
         if turnout_time > timedelta(seconds=0):
-            #Assume a zero turnout time is inaccurate
+            #Assume a zero or negative turnout time is inaccurate
             row["turnout_time"] = turnout_time
 
 for row in fire_dept_data_first_60000:
@@ -96,8 +96,13 @@ for row in fire_dept_data_first_60000:
         current_dict["turnout_time"] = row["turnout_time"]
         task1_data.append(current_dict)
 
+print(len(task1_data))
+
 evening = [row for row in task1_data if row["is_evening"]]
 not_evening = [row for row in task1_data if not row["is_evening"]]
+
+print(len(evening))
+print(len(not_evening))
 
 # quick spot check that the turnout times seem different at all
 
@@ -193,3 +198,38 @@ not_b_to_b_turnouts = [row["turnout_time"].seconds for row in not_back_to_back]
 60.88715953307393"""
 
 u_value, p_value = scipy.stats.mannwhitneyu(not_b_to_b_turnouts, b_to_b_turnouts, alternative="two-sided")
+
+
+for row in fire_dept_data_first_60000:
+    if "available_dttm" in row.keys():
+        row["available_datetime"] = datetime.strptime(row["available_dttm"], "%Y-%m-%dT%H:%M:%S.000")
+        row["total_time"] = row["available_datetime"] - row["creation_datetime"]
+
+all_total = []
+all_turnout = []
+for row in fire_dept_data_first_60000:
+    if "available_dttm" in row.keys() and "turnout_time" in row.keys():
+        all_total.append(row["total_time"].seconds)
+        all_turnout.append(row["turnout_time"].seconds)
+
+
+""">>> scipy.stats.pearsonr(all_turnout, all_total)
+(-0.1719694725893584, 0.0)"""
+
+training_data = fire_dept_data_first_60000[::60]
+test_data = fire_dept_data_first_60000[1::60]
+
+training_total = []
+
+for row in training_data:
+    if "total_time" in row.keys():
+        training_total.append(row["total_time"].seconds)
+
+predicted_value = sum(training_total)/len(training_total)
+
+total_squared_percent_error = sum([((predicted_value - row["total_time"].seconds)/predicted_value)**2 for row in test_data])
+
+average_error = total_squared_percent_error/len(test_data)
+
+""">>> average_error
+0.8943626452506162"""
