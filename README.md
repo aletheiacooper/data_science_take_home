@@ -34,6 +34,6 @@ If you need help with this, please feel free to email me, `aletheiacooper@gmail.
 
 * To pull new data, which will take ~20 seconds, you need to give the program the names of the two files where you want the new data to be cached; these files should not already exist. If these are FILENAMEONE.json and FILENAMETWO.json you would type:
 
-`pipenv run python fire_dept.py FILENAMEONE.json FILENAMETWO.json
+`pipenv run python fire_dept.py FILENAMEONE.json FILENAMETWO.json`
 
 If one of the files exists and the other doesn't, new data will only be pulled for the file that doesn't exist.
