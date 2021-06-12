@@ -139,8 +139,7 @@ for row in fire_dept_data_first_60000[::600]:
 
 
 for row in include_previous_incidents:
-    row["creation_datetime"] = datetime.strptime(row["dispatch_dttm"], "%Y-%m-%dT%H:%M:%S.00\
-0")
+    row["creation_datetime"] = datetime.strptime(row["dispatch_dttm"], "%Y-%m-%dT%H:%M:%S.000")
         
 def previous_incident(incident):
     all_previous = [row for row in include_previous_incidents if row["creation_datetime"] < incident["creation_datetime"]]
@@ -150,3 +149,47 @@ def previous_incident(incident):
         previous_incident = [row for row in a_i if row["creation_datetime"] == just_previous][0]
     return previous_incident
                             
+for row in include_previous_incidents:
+    row["available_datetime"] = datetime.strptime(row["available_dttm"], "%Y-%m-%dT%H:%M:%S.000")
+
+count_errors = 0
+for row in include_previous_incidents:
+    try:
+        row["previous_available"] = previous_incident(row)["available_datetime"]
+    except:
+        print("Errored on previous_incident function")
+        count_errors += 1
+        continue
+    row["gap"] = row["creation_datetime"] - row["previous_available"]
+    row["back_to_back"] = row["gap"] <= timedelta(minutes=10)
+    
+    
+    
+
+    
+for row in include_previous_incidents:
+    if "response_dttm" in list(row.keys()):
+        row["response_datetime"] = datetime.strptime(row["response_dttm"], "%Y-%m-%dT%H:%M:%S.000")
+        turnout_time = row["response_datetime"] - row["creation_datetime"]
+        if turnout_time > timedelta(seconds=0):
+            #Assume a zero turnout time is inaccurate                                       
+            row["turnout_time"] = turnout_time
+
+back_to_backable = []
+for row in include_previous_incidents:
+    if "back_to_back" in row.keys() and "turnout_time" in row.keys():
+        back_to_backable.append(row)
+
+back_to_back = [row for row in back_to_backable if row["back_to_back"]]
+not_back_to_back = [row for row in back_to_backable if not row["back_to_back"]]
+
+b_to_b_turnouts = [row["turnout_time"].seconds for row in back_to_back]
+not_b_to_b_turnouts = [row["turnout_time"].seconds for row in not_back_to_back]
+
+
+""">>> sum(b_to_b_turnouts)/len(b_to_b_turnouts)
+34.50961538461539
+>>> sum(not_b_to_b_turnouts)/len(not_b_to_b_turnouts)
+60.88715953307393"""
+
+u_value, p_value = scipy.stats.mannwhitneyu(not_b_to_b_turnouts, b_to_b_turnouts, alternative="two-sided")
