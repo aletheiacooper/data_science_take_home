@@ -7,8 +7,9 @@ import sys
 import os
 
 file_name = sys.argv[1]
-url = "https://data.sfgov.org/resource/RowID.json"
-header = {"$$app_token" : "I6QzPzDfpk4SrU7Eo0PBYhyiT"}
+URL = "https://data.sfgov.org/resource/RowID.json"
+HEADER = {"$$app_token" : "I6QzPzDfpk4SrU7Eo0PBYhyiT"}
+TOTAL_ROWS = 6000
 
 if os.path.exists(file_name):
     with open(file_name, "r") as data_file:
@@ -17,8 +18,8 @@ else:
 
     # In production environment, would do error checking in case the data doesn't load properly
     print("Pulling new data, creating new data file")
-    params = {"$limit" : 60000}
-    response = requests.get(url, headers=header, params=params)
+    params = {"$limit" : TOTAL_ROWS}
+    response = requests.get(URL, headers=HEADER, params=params)
     
     with open(file_name, "w") as output_file:
         json.dump(response.json(), output_file)
@@ -38,11 +39,11 @@ but we need something faster as well.
 """Playing around with the filter option on the SFData website, I see
 that the whole data set goes back to the year 2000.  Let's see if the first 60k records seem to span the entire time."""
 
-fire_dept_data_first_60000 = initial_data
-before_2010_in_first_60k = len([thing for thing in fire_dept_data_first_60000 if thing["call_date"].find("200") != -1])
+fire_dept_sample = initial_data
+before_2010_in_sample = len([thing for thing in fire_dept_sample if thing["call_date"].find("200") != -1])
 
-print("Total number of rows pulled: " + str(len(fire_dept_data_first_60000)))
-print("Rows pulled from before 2010: " + str(before_2010_in_first_60k))
+print("Total number of rows pulled: " + str(len(fire_dept_sample)))
+print("Rows pulled from before 2010: " + str(before_2010_in_sample))
 
 """This shows me that there are 4504 rows for which the call date is before 2010 in the first 60k records. I think I'm going to move forward with this sample, although I would want to do some more checking that the sample is representative before using it in a production setting."""
 
@@ -72,37 +73,37 @@ to check this assumption.
 It's not clear what the "on route" field should be: I'm going to use
 the "response" time as that, since it seems to be usually after the dispatch time."""
 
-for row in fire_dept_data_first_60000:
+for row in fire_dept_sample:
     row["creation_datetime"] = datetime.strptime(row["dispatch_dttm"], "%Y-%m-%dT%H:%M:%S.000")
     if "response_dttm" in list(row.keys()):
         row["response_datetime"] = datetime.strptime(row["response_dttm"], "%Y-%m-%dT%H:%M:%S.000")
 
 # mark evening data
 
-for row in fire_dept_data_first_60000:
+for row in fire_dept_sample:
     creation_time = row["creation_datetime"].hour
     row["is_evening"] = creation_time >= 22 or creation_time < 6 #creation time 10pm or greater, or before 6am
 
-for row in fire_dept_data_first_60000:
+for row in fire_dept_sample:
     if "response_datetime" in row.keys():
         turnout_time = row["response_datetime"] - row["creation_datetime"]
         if turnout_time > timedelta(seconds=0):
             #Assume a zero or negative turnout time is inaccurate
             row["turnout_time"] = turnout_time
 
-task1_data = []
+task1a_data = []
 
-for row in fire_dept_data_first_60000:
+for row in fire_dept_sample:
     if "turnout_time" in list(row.keys()):
         current_dict = {}
         current_dict["is_evening"] = row["is_evening"]
         current_dict["turnout_time"] = row["turnout_time"]
-        task1_data.append(current_dict)
+        task1a_data.append(current_dict)
 
-print("Number of rows with turnout time: " + str(len(task1_data)))
+print("Number of rows with turnout time: " + str(len(task1a_data)))
 
-evening = [row for row in task1_data if row["is_evening"]]
-not_evening = [row for row in task1_data if not row["is_evening"]]
+evening = [row for row in task1a_data if row["is_evening"]]
+not_evening = [row for row in task1a_data if not row["is_evening"]]
 
 print("Number of evening rows: " + str(len(evening)))
 
@@ -143,7 +144,7 @@ if os.path.exists(same_day_filename):
 else:
     include_previous_incidents = []
 
-    for row in fire_dept_data_first_60000[::600]:
+    for row in fire_dept_sample[::600]:
         begin_day_of_call = datetime.strftime(row["creation_datetime"], "%Y-%m-%dT00:00:00.000")
         end_day_datetime = row["creation_datetime"] + timedelta(days=1)
         end_day_of_call = datetime.strftime(end_day_datetime, "%Y-%m-%dT00:00:00.000")
@@ -152,7 +153,7 @@ else:
         params["unit_id"] = unit
         q = "dispatch_dttm between '" + begin_day_of_call + "' and '" + end_day_of_call + "'"
         params["$where"] = q
-        response = requests.get(url, headers=header, params=params)
+        response = requests.get(URL, headers=HEADER, params=params)
         new_rows = load_from_response_to_dict(response)
         for new_row in new_rows:
             include_previous_incidents.append(new_row)
@@ -226,14 +227,14 @@ u_value, p_value = scipy.stats.mannwhitneyu(not_b_to_b_turnouts, b_to_b_turnouts
 
 print("Mann Whitney test on back-to-back vs. not-back-to-back turnout times yields a p-value of " + str(p_value))
 
-for row in fire_dept_data_first_60000:
+for row in fire_dept_sample:
     if "available_dttm" in row.keys():
         row["available_datetime"] = datetime.strptime(row["available_dttm"], "%Y-%m-%dT%H:%M:%S.000")
         row["total_time"] = row["available_datetime"] - row["creation_datetime"]
 
 all_total = []
 all_turnout = []
-for row in fire_dept_data_first_60000:
+for row in fire_dept_sample:
     if "available_dttm" in row.keys() and "turnout_time" in row.keys():
         all_total.append(row["total_time"].seconds)
         all_turnout.append(row["turnout_time"].seconds)
@@ -242,8 +243,8 @@ r_value = scipy.stats.pearsonr(all_turnout, all_total)
 print("The Pearson r-value for the possible linear correlation between turnout times and total call times is: " + str(r_value))
 """(-0.1719694725893584, 0.0) -- This is not at all significant!  At this initial stage I'd say there isn't a relationship between turnout times and on scene times."""
 
-training_data = fire_dept_data_first_60000[::60]
-test_data = fire_dept_data_first_60000[1::60]
+training_data = fire_dept_sample[::60]
+test_data = fire_dept_sample[1::60]
 
 print("Selected training data and test data for the predictive model.")
 print("Training data has " + str(len(training_data)) + " rows.")
